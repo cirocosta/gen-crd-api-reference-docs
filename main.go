@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"flag"
@@ -145,9 +146,37 @@ func main() {
 			return "", errors.Wrap(err, "failed to render the result")
 		}
 
+		var builder strings.Builder
+
+		insidePre := false
+		scanner := bufio.NewScanner(&b)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if insidePre {
+				builder.WriteString(line + "\n")
+
+				if strings.Contains(line, "</pre>") {
+					insidePre = false
+				}
+
+				continue
+			}
+
+			if strings.Contains(line, "<pre>") {
+				insidePre = true
+			}
+
+			line = strings.TrimSpace(line)
+			builder.WriteString(line + "\n")
+		}
+
+		if err := scanner.Err(); err != nil {
+			return "", fmt.Errorf("reading standard input: %w", err)
+		}
+
 		// remove trailing whitespace from each html line for markdown renderers
-		s := regexp.MustCompile(`(?m)^\s+`).ReplaceAllString(b.String(), "")
-		return s, nil
+		// s := regexp.MustCompile(`(?m)^\s+`).ReplaceAllString(b.String(), "")
+		return builder.String(), nil
 	}
 
 	if *flOutFile != "" {
